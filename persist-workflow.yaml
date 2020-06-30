@@ -55,9 +55,18 @@
         key_file: "{{ private_key_path }}"
         executable: "{{ git_binary_path }}"
 
+    - name: Define the path of the namespaced directory that will contain the file
+      set_fact:
+        namespace_path: "{{ git_checkout_folder_path }}/workflow_job_templates"
+
+    - name: create directory if they don't exist
+      file:
+        path: "{{ namespace_path }}"
+        state: directory
+
     - name: Persist workflow file
       copy:
-        dest: "{{ git_checkout_folder_path }}/workflow_job_templates/{{ src_workflow_name }}.json"
+        dest: "{{ namespace_path }}/{{ src_workflow_name }}.json"
         content: "{{ response.json|to_nice_json }}"
 
     - name: Get Git version
