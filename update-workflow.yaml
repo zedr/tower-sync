@@ -56,7 +56,7 @@
 
     - name: Get the source workflow data
       slurp:
-        src: "{{ git_checkout_folder_path}}/workflow.json"
+        src: "{{ git_checkout_folder_path}}/workflow_job_templates/{{ tgt_workflow_name }}.json"
       register: src_workflow_json
 
     - name: Infer some metadata from the data

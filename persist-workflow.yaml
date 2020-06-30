@@ -38,11 +38,11 @@
 
     - name: Infer the workflow name and define it as a variable
       set_fact:
-        workflow_name: "{{ response.json.name }}"
+        src_workflow_name: "{{ response.json.name }}"
 
     - name: Set the path for the checkout folder
       set_fact:
-        git_checkout_folder_path: "/tmp/git-{{ workflow_name }}-{{ src_workflow_id }}"
+        git_checkout_folder_path: "/tmp/git-{{ src_workflow_name }}-{{ src_workflow_id }}"
 
     - name:
       git:
@@ -57,7 +57,7 @@
 
     - name: Persist workflow file
       copy:
-        dest: "{{ git_checkout_folder_path }}/workflow.json"
+        dest: "{{ git_checkout_folder_path }}/workflow_job_templates/{{ src_workflow_name }}.json"
         content: "{{ response.json|to_nice_json }}"
 
     - name: Get Git version
