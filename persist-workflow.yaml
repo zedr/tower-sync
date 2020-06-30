@@ -4,7 +4,7 @@
   vars:
     tower_host: ""
     tower_port: 443
-    workflow_id: 0
+    src_workflow_id: 0
     git_repo_uri: ""
     git_branch: "master"
     git_user_name: ""
@@ -19,7 +19,7 @@
         that:
           - tower_host != ""
           - git_repo_uri != ""
-          - workflow_id != 0
+          - src_workflow_id != 0
           - private_key_path != ""
           - git_user_name != ""
           - git_user_email != ""
@@ -28,7 +28,7 @@
     
     - name: Get the source workflow representation
       uri:
-        url: "https://{{ tower_host }}:{{ tower_port }}/api/v2/workflow_job_templates/{{ workflow_id }}/"
+        url: "https://{{ tower_host }}:{{ tower_port }}/api/v2/workflow_job_templates/{{ src_workflow_id }}/"
         force_basic_auth: yes
         method: GET
         validate_certs: no
@@ -42,7 +42,7 @@
 
     - name: Set the path for the checkout folder
       set_fact:
-        git_checkout_folder_path: "/tmp/git-{{ workflow_name }}-{{ workflow_id }}"
+        git_checkout_folder_path: "/tmp/git-{{ workflow_name }}-{{ src_workflow_id }}"
 
     - name:
       git:
