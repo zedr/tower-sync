@@ -11,6 +11,7 @@
     git_user_email: ""
     git_binary_path: "/usr/bin/git"
     private_key_path: ""
+    commit_msg: "Updated via Ansible"
   tasks:
 
     - name: Check variables
@@ -34,7 +35,7 @@
         password: "{{ tower_password }}"
       register: response
 
-    - name: Set the workflow name
+    - name: Infer the workflow name and define it as a variable
       set_fact:
         workflow_name: "{{ response.json.name }}"
 
@@ -73,7 +74,7 @@
     - name: Commit
       command:
         chdir: "{{ git_checkout_folder_path }}"
-        cmd: "{{ git_binary_path }} -c user.name='{{ git_user_name }}' -c user.email='<{{ git_user_email }}>' commit -m 'New' "
+        cmd: "{{ git_binary_path }} -c user.name='{{ git_user_name }}' -c user.email='<{{ git_user_email }}>' commit -m '{{ commit_msg }}' "
 
     - name: Push
       command:
