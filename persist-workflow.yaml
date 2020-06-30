@@ -71,17 +71,17 @@
     - name: Git add files
       command:
         chdir: "{{ git_checkout_folder_path }}"
-        cmd: "git add ."
+        cmd: "{{ git_binary_path }} add ."
 
     - name: Commit
       command:
         chdir: "{{ git_checkout_folder_path }}"
-        cmd: "git -c user.name='{{ git_user_name }}' -c user.email='<{{ git_user_email }}>' commit -m 'New' "
+        cmd: "{{ git_binary_path }} -c user.name='{{ git_user_name }}' -c user.email='<{{ git_user_email }}>' commit -m 'New' "
 
     - name: Push
       command:
         chdir: "{{ git_checkout_folder_path }}"
-        cmd: "git push origin master"
+        cmd: "{{ git_binary_path }} push origin master"
       environment:
         GIT_SSH_COMMAND: ssh -i "{{ private_key_path }}"
 
