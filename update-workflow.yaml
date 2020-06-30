@@ -65,7 +65,7 @@
 
     - assert:
         that:
-          - src_workflow_data['name'] != tgt_workflow_name
+          - src_workflow_data['name'] == tgt_workflow_name
         fail_msg: "The source and target workflows must have the same name."
 
     - name: Alter the JSON to change the organization
