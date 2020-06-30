@@ -1,0 +1,70 @@
+- name: Persist a workflow and related objects from an Ansible Tower
+  hosts: all
+  gather_facts: false
+  vars:
+    tower_host: ""
+    tower_port: 443
+    workflow_id: 0
+    git_repo_uri: ""
+    git_branch: "master"
+  tasks:
+
+    - name: Check variables
+      assert:
+        that:
+          - tower_host != ""
+          - git_repo_uri != ""
+          - workflow_id != 0
+        fail_msg: "Variables not correctly set."
+    
+    - name: Get the source workflow representation
+      uri:
+        url: "https://{{ tower_host }}:{{ tower_port }}/api/v2/workflow_job_templates/{{ workflow_id }}/"
+        force_basic_auth: yes
+        method: GET
+        validate_certs: no
+        user: "{{ tower_user }}"
+        password: "{{ tower_password }}"
+      register: response
+
+    - name: Print the result
+      debug:
+        msg: "{{ response.json }}"
+
+    - name: Set the workflow name
+      set_fact:
+        workflow_name: "{{ response.json.name }}"
+
+    - name: Set the path for the checkout folder
+      set_fact:
+        git_checkout_folder_path: "/tmp/git-{{ workflow_name }}-{{ workflow_id }}"
+
+    - name:
+      git:
+        repo: "{{ git_repo_uri }}"
+        # Replace with tmp cleanable directory
+        dest: "{{ git_checkout_folder_path }}"
+        depth: 1
+        force: yes
+        accept_hostkey: yes
+
+    - name: Persist workflow file
+      copy:
+        dest: "{{ git_checkout_folder_path }}/workflow.json"
+        content: "{{ response.json }}"
+
+    - name: Git add files
+      command:
+        chdir: "{{ git_checkout_folder_path }}"
+        cmd: "git add ."
+
+    - name: Commit
+      command:
+        chdir: "{{ git_checkout_folder_path }}"
+        cmd: "git commit -m 'New'"
+
+    - name: Push
+      command:
+        chdir: "{{ git_checkout_folder_path }}"
+        cmd: "git push origin master"
+
