@@ -7,6 +7,7 @@
     workflow_id: 0
     git_repo_uri: ""
     git_branch: "master"
+    private_key_path: ""
   tasks:
 
     - name: Check variables
@@ -52,6 +53,7 @@
         depth: 1
         force: yes
         accept_hostkey: yes
+        key_file: "{{ private_key_path }}"
 
     - name: Get the contents of the workflow
       slurp:

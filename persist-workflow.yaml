@@ -7,6 +7,7 @@
     workflow_id: 0
     git_repo_uri: ""
     git_branch: "master"
+    private_key_path: ""
   tasks:
 
     - name: Check variables
@@ -15,7 +16,8 @@
           - tower_host != ""
           - git_repo_uri != ""
           - workflow_id != 0
-        fail_msg: "Variables not correctly set."
+          - private_key_path != ""
+        fail_msg: "The required variables are not correctly set."
     
     - name: Get the source workflow representation
       uri:
@@ -47,6 +49,7 @@
         depth: 1
         force: yes
         accept_hostkey: yes
+        key_file: "{{ private_key_path }}"
 
     - name: Persist workflow file
       copy:
