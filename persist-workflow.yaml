@@ -60,6 +60,13 @@
         dest: "{{ git_checkout_folder_path }}/workflow.json"
         content: "{{ response.json }}"
 
+    - name: Get Git version
+      command: git --version
+      register: git_version
+
+    - debug:
+        msg: "{{ git_version.stdout }}"
+
     - name: Git add files
       command:
         chdir: "{{ git_checkout_folder_path }}"
