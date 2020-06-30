@@ -75,5 +75,5 @@
         chdir: "{{ git_checkout_folder_path }}"
         cmd: "git push origin master"
       environment:
-        GIT_SSH_COMMAND: 'ssh -i {{ private_key_path }}'
+        GIT_SSH_COMMAND: "ssh -i {{ private_key_path }}"
 
