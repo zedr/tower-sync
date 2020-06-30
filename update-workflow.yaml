@@ -31,7 +31,7 @@
 
     - name: Infer the org and workflow names and define them as variables
       set_fact:
-        workflow_name: "{{ response.json.name }}"
+        tgt_workflow_name: "{{ response.json.name }}"
         org_id: "{{ response.json.organization }}"
 
     - assert:
@@ -54,14 +54,23 @@
         key_file: "{{ private_key_path }}"
         executable: "{{ git_binary_path }}"
 
-    - name: Get the contents of the workflow
+    - name: Get the source workflow data
       slurp:
         src: "{{ git_checkout_folder_path}}/workflow.json"
-      register: workflow_json
+      register: src_workflow_json
+
+    - name: Infer some metadata from the data
+      set_fact:
+        src_workflow_data: "{{ src_workflow_json['content'] | b64decode | from_json }}"
+
+    - assert:
+        that:
+          - src_workflow_data['name'] != tgt_workflow_name
+        fail_msg: "The source and target workflows must have the same name."
 
     - name: Alter the JSON to change the organization
       set_fact:
-        workflow_final: "{{ workflow_json['content'] | b64decode | from_json | combine({'organization': org_id}) }}"
+        tgt_workflow_new_data: "{{ src_workflow_data | combine({'organization': org_id}) }}"
 
     - name: Put the new target workflow representation
       uri:
@@ -69,7 +78,7 @@
         force_basic_auth: yes
         method: PUT
         body_format: json
-        body: "{{ workflow_final }}"
+        body: "{{ tgt_workflow_new_data }}"
         validate_certs: no
         user: "{{ tower_user }}"
         password: "{{ tower_password }}"
