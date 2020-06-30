@@ -34,10 +34,6 @@
         password: "{{ tower_password }}"
       register: response
 
-    - name: Print the result
-      debug:
-        msg: "{{ response.json }}"
-
     - name: Set the workflow name
       set_fact:
         workflow_name: "{{ response.json.name }}"
@@ -55,18 +51,19 @@
         force: yes
         accept_hostkey: yes
         key_file: "{{ private_key_path }}"
+        executable: "{{ git_binary_path }}"
 
     - name: Persist workflow file
       copy:
         dest: "{{ git_checkout_folder_path }}/workflow.json"
-        content: "{{ response.json }}"
+        content: "{{ response.json|to_nice_json }}"
 
     - name: Get Git version
-      command: git --version
+      command: "{{ git_binary_path }} --version"
       register: git_version
 
     - debug:
-        msg: "{{ git_version.stdout }}"
+        msg: "Using Git version: {{ git_version.stdout }}"
 
     - name: Git add files
       command:
