@@ -28,11 +28,7 @@
         password: "{{ tower_password }}"
       register: response
 
-    - name: Print the result
-      debug:
-        msg: "{{ response.json }}"
-
-    - name: Set the workflow name
+    - name: Infer the org and workflow names and define them as variables
       set_fact:
         workflow_name: "{{ response.json.name }}"
         org_id: "{{ response.json.organization }}"
@@ -40,6 +36,7 @@
     - assert:
         that:
           - org_id != ""
+        fail_msg: "The target workflow must be associated with an organization."
 
     - name: Set the path for the checkout folder
       set_fact:
@@ -64,9 +61,6 @@
       set_fact:
         workflow_final: "{{ workflow_json['content'] | b64decode | from_json | combine({'organization': org_id}) }}"
 
-    - debug:
-        msg: "FLOW: {{ workflow_final }}"
-
     - name: Put the new target workflow representation
       uri:
         url: "https://{{ tower_host }}:{{ tower_port }}/api/v2/workflow_job_templates/{{ workflow_id }}/"
@@ -77,7 +71,3 @@
         validate_certs: no
         user: "{{ tower_user }}"
         password: "{{ tower_password }}"
-      register: response2
-
-    - debug:
-        msg: "{{ response2 }}"
