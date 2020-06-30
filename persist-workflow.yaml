@@ -7,6 +7,8 @@
     workflow_id: 0
     git_repo_uri: ""
     git_branch: "master"
+    git_user_name: ""
+    git_user_email: ""
     private_key_path: ""
   tasks:
 
@@ -17,6 +19,8 @@
           - git_repo_uri != ""
           - workflow_id != 0
           - private_key_path != ""
+          - git_user_name != ""
+          - git_user_email != ""
         fail_msg: "The required variables are not correctly set."
     
     - name: Get the source workflow representation
@@ -64,7 +68,7 @@
     - name: Commit
       command:
         chdir: "{{ git_checkout_folder_path }}"
-        cmd: "git commit -m 'New'"
+        cmd: "git commit -m 'New' --author='{{ git_user_name }} <{{ git_user_email }}>'"
 
     - name: Push
       command:
