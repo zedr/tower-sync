@@ -9,6 +9,7 @@
     git_branch: "master"
     git_user_name: ""
     git_user_email: ""
+    git_binary_path: "/usr/bin/git"
     private_key_path: ""
   tasks:
 
