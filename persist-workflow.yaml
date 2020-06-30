@@ -68,7 +68,7 @@
     - name: Commit
       command:
         chdir: "{{ git_checkout_folder_path }}"
-        cmd: "git commit -m 'New' --author='{{ git_user_name }} <{{ git_user_email }}>'"
+        cmd: "git commit -m 'New' -c user.name='{{ git_user_name }}' -c user.email='<{{ git_user_email }}>'"
 
     - name: Push
       command:
