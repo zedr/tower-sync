@@ -23,6 +23,7 @@
           - private_key_path != ""
           - git_user_name != ""
           - git_user_email != ""
+          - commit_msg != ""
         fail_msg: "The required variables are not correctly set."
     
     - name: Get the source workflow representation
