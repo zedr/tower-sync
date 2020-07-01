@@ -1,10 +1,12 @@
 - name: Persist a workflow and related objects from an Ansible Tower
   hosts: all
   gather_facts: false
+  force_handlers: true
   vars:
     tower_host: ""
     tower_port: 443
     src_workflow_id: 0
+    tower_object_type: "workflow_job_template"
     git_repo_uri: ""
     git_branch: "master"
     git_user_name: ""
@@ -13,6 +15,8 @@
     private_key_path: ""
     commit_msg: "Updated via Ansible"
   tasks:
+
+    # --- Checks
 
     - name: Check variables
       assert:
@@ -25,10 +29,38 @@
           - git_user_email != ""
           - commit_msg != ""
         fail_msg: "The required variables are not correctly set."
+
+    # --- Preparation
+    
+    - name: Generate random directory for checkout
+      set_fact:
+        git_checkout_path: "/tmp/persist-workflow-{{ lookup('password', '/dev/null chars=hexdigits length=16') }}"
+
+    - debug:
+        msg: "Creating {{ git_checkout_path }}"
+
+    - name:
+      git:
+        repo: "{{ git_repo_uri }}"
+        # Replace with tmp cleanable directory
+        dest: "{{ git_checkout_path }}"
+        depth: 1
+        force: yes
+        accept_hostkey: yes
+        key_file: "{{ private_key_path }}"
+        executable: "{{ git_binary_path }}"
+      notify:
+        - test
+        - delete git checkout folder
+
+    - assert:
+        that: 1 == 0
+
+    # --- Fetch objects
     
     - name: Get the source workflow representation
       uri:
-        url: "https://{{ tower_host }}:{{ tower_port }}/api/v2/workflow_job_templates/{{ src_workflow_id }}/"
+        url: "https://{{ tower_host }}:{{ tower_port }}/api/v2/{{ tower_object_type }}s/{{ src_workflow_id }}/"
         force_basic_auth: yes
         method: GET
         validate_certs: no
@@ -39,25 +71,11 @@
     - name: Infer the workflow name and define it as a variable
       set_fact:
         src_workflow_name: "{{ response.json.name }}"
-
-    - name: Set the path for the checkout folder
-      set_fact:
-        git_checkout_folder_path: "/tmp/git-{{ src_workflow_name }}-{{ src_workflow_id }}"
-
-    - name:
-      git:
-        repo: "{{ git_repo_uri }}"
-        # Replace with tmp cleanable directory
-        dest: "{{ git_checkout_folder_path }}"
-        depth: 1
-        force: yes
-        accept_hostkey: yes
-        key_file: "{{ private_key_path }}"
-        executable: "{{ git_binary_path }}"
+      when: tower_object_type == "workflow_job_template"
 
     - name: Define the path of the namespaced directory that will contain the file
       set_fact:
-        namespace_path: "{{ git_checkout_folder_path }}/workflow_job_templates"
+        namespace_path: "{{ git_checkout_path }}/{{ tower_object_type }}s"
 
     - name: create directory if they don't exist
       file:
@@ -78,18 +96,29 @@
 
     - name: Git add files
       command:
-        chdir: "{{ git_checkout_folder_path }}"
+        chdir: "{{ git_checkout_path }}"
         cmd: "{{ git_binary_path }} add ."
 
     - name: Commit
       command:
-        chdir: "{{ git_checkout_folder_path }}"
+        chdir: "{{ git_checkout_path }}"
         cmd: "{{ git_binary_path }} -c user.name='{{ git_user_name }}' -c user.email='<{{ git_user_email }}>' commit -m '{{ commit_msg }}' "
 
     - name: Push
       command:
-        chdir: "{{ git_checkout_folder_path }}"
+        chdir: "{{ git_checkout_path }}"
         cmd: "{{ git_binary_path }} push origin master"
       environment:
         GIT_SSH_COMMAND: ssh -i "{{ private_key_path }}"
+
+  handlers:
+
+    - name: test
+      debug:
+        msg: "Triggered!"
+
+    - name: delete git checkout folder
+      file:
+        path: "{{ git_checkout_path }}"
+        state: absent
 
