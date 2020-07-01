@@ -1,15 +1,19 @@
 - name: Update a workflow from Git
   hosts: all
   gather_facts: false
+  force_handlers: true
   vars:
     tower_host: ""
     tower_port: 443
     tgt_workflow_id: 0
+    tower_object_type: "workflow_job_template"
     git_repo_uri: ""
     git_branch: "master"
     git_binary_path: "/usr/bin/git"
     private_key_path: ""
   tasks:
+
+    # --- Checks
 
     - name: Check variables
       assert:
@@ -19,9 +23,38 @@
           - tgt_workflow_id != 0
         fail_msg: "Variables not correctly set."
     
-    - name: Get the target workflow representation
+    - name: Get Git version
+      command: "{{ git_binary_path }} --version"
+      register: git_version
+
+    - name: Print the version number of Git
+      debug:
+        msg: "Using Git version: {{ git_version.stdout }} (needs to be > 2.3)"
+
+    # -- Preparation
+
+    - name: Generate random directory for checkout
+      set_fact:
+        git_checkout_path: "/tmp/persist-workflow-{{ lookup('password', '/dev/null chars=hexdigits length=16') }}"
+
+    - name: Get the source object representation
+      git:
+        repo: "{{ git_repo_uri }}"
+        # Replace with tmp cleanable directory
+        dest: "{{ git_checkout_path }}"
+        depth: 1
+        force: yes
+        accept_hostkey: yes
+        key_file: "{{ private_key_path }}"
+        executable: "{{ git_binary_path }}"
+      notify:
+        - delete git checkout folder
+
+    # --- Fetch the target object
+
+    - name: Get the target object representation
       uri:
-        url: "https://{{ tower_host }}:{{ tower_port }}/api/v2/workflow_job_templates/{{ tgt_workflow_id }}/"
+        url: "https://{{ tower_host }}:{{ tower_port }}/api/v2/{{ tower_object_type }}s/{{ tgt_workflow_id }}/"
         force_basic_auth: yes
         method: GET
         validate_certs: no
@@ -29,52 +62,47 @@
         password: "{{ tower_password }}"
       register: response
 
-    - name: Infer the org and workflow names and define them as variables
-      set_fact:
-        tgt_workflow_name: "{{ response.json.name }}"
-        org_id: "{{ response.json.organization }}"
+    # --- Perform preflight checks
 
-    - assert:
+    - name: Infer some variables that we will be used later
+      set_fact:
+        tgt_object_name: "{{ response.json.name }}"
+        tgt_org_id: "{{ response.json.organization }}"
+        tgt_inventory_id: "{{ response.json.inventory }}"
+
+    - name: If a workflow, the organization id must be set on the target
+      assert:
         that:
-          - org_id != ""
+          - tgt_org_id != ""
         fail_msg: "The target workflow must be associated with an organization."
+      when: tower_object_type == "workflow_job_template"
 
-    - name: Set the path for the checkout folder
-      set_fact:
-        git_checkout_folder_path: "/tmp/git-work-{{ tgt_workflow_id }}"
-
-    - name:
-      git:
-        repo: "{{ git_repo_uri }}"
-        # Replace with tmp cleanable directory
-        dest: "{{ git_checkout_folder_path }}"
-        depth: 1
-        force: yes
-        accept_hostkey: yes
-        key_file: "{{ private_key_path }}"
-        executable: "{{ git_binary_path }}"
-
-    - name: Get the source workflow data
+    - name: Get the source object data
       slurp:
-        src: "{{ git_checkout_folder_path}}/workflow_job_templates/{{ tgt_workflow_name }}.json"
-      register: src_workflow_json
+        src: "{{ git_checkout_path}}/{{ tower_object_type }}s/{{ tgt_object_name }}.json"
+      register: src_object_json
 
     - name: Infer some metadata from the data
       set_fact:
-        src_workflow_data: "{{ src_workflow_json['content'] | b64decode | from_json }}"
+        src_object_data: "{{ src_object_json['content'] | b64decode | from_json }}"
 
-    - assert:
+    - name: If a workflow, the target and source names must be the same 
+      assert:
         that:
-          - src_workflow_data['name'] == tgt_workflow_name
+          - src_object_data['name'] == tgt_object_name
         fail_msg: "The source and target workflows must have the same name."
+      when: tower_object_type == "workflow_job_template"
 
-    - name: Alter the JSON to change the organization
+    - name: Alter the JSON to keep the organization and inventory of the target
       set_fact:
-        tgt_workflow_new_data: "{{ src_workflow_data | combine({'organization': org_id}) }}"
+        tgt_workflow_new_data: "{{ src_object_data | combine({'organization': tgt_org_id}) | combine({'inventory': tgt_inventory_id}) }}"
+      when: tower_object_type == "workflow_job_template"
 
-    - name: Put the new target workflow representation
+    # --- Send the new object data to the Tower API
+
+    - name: PUT the new object data to the API
       uri:
-        url: "https://{{ tower_host }}:{{ tower_port }}/api/v2/workflow_job_templates/{{ tgt_workflow_id }}/"
+        url: "https://{{ tower_host }}:{{ tower_port }}/api/v2/{{ tower_object_type }}s/{{ tgt_workflow_id }}/"
         force_basic_auth: yes
         method: PUT
         body_format: json
@@ -82,3 +110,11 @@
         validate_certs: no
         user: "{{ tower_user }}"
         password: "{{ tower_password }}"
+
+  handlers:
+
+    - name: delete git checkout folder
+      file:
+        path: "{{ git_checkout_path }}"
+        state: absent
+

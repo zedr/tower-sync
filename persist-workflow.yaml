@@ -30,14 +30,19 @@
           - commit_msg != ""
         fail_msg: "The required variables are not correctly set."
 
+    - name: Get Git version
+      command: "{{ git_binary_path }} --version"
+      register: git_version
+
+    - name: Print the version number of Git
+      debug:
+        msg: "Using Git version: {{ git_version.stdout }} (needs to be > 2.3)"
+
     # --- Preparation
     
     - name: Generate random directory for checkout
       set_fact:
         git_checkout_path: "/tmp/persist-workflow-{{ lookup('password', '/dev/null chars=hexdigits length=16') }}"
-
-    - debug:
-        msg: "Creating {{ git_checkout_path }}"
 
     - name:
       git:
@@ -50,15 +55,11 @@
         key_file: "{{ private_key_path }}"
         executable: "{{ git_binary_path }}"
       notify:
-        - test
         - delete git checkout folder
 
-    - assert:
-        that: 1 == 0
-
-    # --- Fetch objects
+    # --- Fetch workflow
     
-    - name: Get the source workflow representation
+    - name: Get the source object representation
       uri:
         url: "https://{{ tower_host }}:{{ tower_port }}/api/v2/{{ tower_object_type }}s/{{ src_workflow_id }}/"
         force_basic_auth: yes
@@ -68,7 +69,11 @@
         password: "{{ tower_password }}"
       register: response
 
-    - name: Infer the workflow name and define it as a variable
+    - name: Infer the object name and define it as a variable
+      set_fact:
+        src_object_name: "{{ response.json.name }}"
+
+    - name: Capture the name of the workflow
       set_fact:
         src_workflow_name: "{{ response.json.name }}"
       when: tower_object_type == "workflow_job_template"
@@ -77,22 +82,24 @@
       set_fact:
         namespace_path: "{{ git_checkout_path }}/{{ tower_object_type }}s"
 
-    - name: create directory if they don't exist
+    - name: create directories if they don't exist
       file:
         path: "{{ namespace_path }}"
         state: directory
 
     - name: Persist workflow file
       copy:
-        dest: "{{ namespace_path }}/{{ src_workflow_name }}.json"
+        dest: "{{ namespace_path }}/{{ src_object_name }}.json"
         content: "{{ response.json|to_nice_json }}"
 
-    - name: Get Git version
-      command: "{{ git_binary_path }} --version"
-      register: git_version
+    # --- Perform pre-commit checks
+    
+    - name: Check that we have inferred the name of the workflow
+      assert:
+        that:
+          src_workflow_name is defined
 
-    - debug:
-        msg: "Using Git version: {{ git_version.stdout }}"
+    # --- Commit and push the files to the VCS
 
     - name: Git add files
       command:
@@ -112,10 +119,6 @@
         GIT_SSH_COMMAND: ssh -i "{{ private_key_path }}"
 
   handlers:
-
-    - name: test
-      debug:
-        msg: "Triggered!"
 
     - name: delete git checkout folder
       file:
